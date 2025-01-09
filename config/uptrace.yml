@@ -1,0 +1,47 @@
+pg:
+  addr: postgres:5432
+  user: uptrace
+  password: uptrace
+  database: uptrace
+
+ch:
+  addr: clickhouse:9000
+  user: default
+  password:
+  database: uptrace
+
+listen:
+  grpc:
+    addr: :14317
+  http:
+    addr: :14318
+
+projects:
+  - id: 1
+    name: uptrace
+    # Token grants write access to the project. Keep a secret.
+    token: project1_secret_token
+    # A list of attributes to pin on the Overview page.
+    pinned_attrs:
+      - service_name
+      - host_name
+      - deployment_environment
+
+auth:
+  users:
+    - email: admin@example.com
+      password: admin123
+
+retention:
+  traces: 30d
+  metrics: 30d
+
+secret_key: 102c1a557c314fc28198acd017960843
+
+logs:
+  # Zap minimal logging level.
+  # Valid values: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL.
+  level: INFO
+
+# Enable to log HTTP requests and database queries.
+debug: true

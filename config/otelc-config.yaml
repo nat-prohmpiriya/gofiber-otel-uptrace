@@ -1,0 +1,49 @@
+extensions:
+  health_check:
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  resourcedetection:
+    detectors: ['system']
+  batch:
+    send_batch_size: 1000
+    timeout: 1s
+
+exporters:
+  otlp/uptrace:
+    endpoint: uptrace:4317
+    tls: { insecure: false }
+    headers: { 'uptrace-dsn': 'http://project1_secret_token@localhost:14318?grpc=14317' }
+  logging:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  telemetry:
+    logs:
+      level: debug
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, otlp/uptrace]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [ otlp/uptrace]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, otlp/uptrace]
