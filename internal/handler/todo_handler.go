@@ -1,30 +1,33 @@
 package handler
 
 import (
-	"context"
-	"strconv"
 	"todo-app/internal/domain"
 	usecase "todo-app/internal/iusecase"
 	"todo-app/utils"
 
+	"context"
+
 	"github.com/gofiber/fiber/v2"
-	"go.opentelemetry.io/otel"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type TodoHandler struct {
 	todoService *usecase.TodoService
+	tracer      trace.Tracer
 }
 
-func NewTodoHandler(todoService *usecase.TodoService) *TodoHandler {
-	return &TodoHandler{todoService: todoService}
+func NewTodoHandler(todoService *usecase.TodoService, tracer trace.Tracer) *TodoHandler {
+	return &TodoHandler{
+		todoService: todoService,
+		tracer:      tracer,
+	}
 }
 
 func (h *TodoHandler) CreateTodo(c *fiber.Ctx) error {
 	ctx := c.Locals("ctx").(context.Context)
-	ctx, span := h.tr
-	_, span := tracer.Start(ctx, "TodoHandler.CreateTodo")
+	ctx, span := h.tracer.Start(ctx, "TodoHandler.CreateTodo")
 	defer span.End()
 
 	todo := new(domain.Todo)
@@ -38,7 +41,6 @@ func (h *TodoHandler) CreateTodo(c *fiber.Ctx) error {
 	span.AddEvent("todo_data", trace.WithAttributes(
 		attribute.String("input", utils.ToJSONString(todo)),
 	))
-
 	if err := h.todoService.CreateTodo(ctx, todo); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -51,32 +53,42 @@ func (h *TodoHandler) CreateTodo(c *fiber.Ctx) error {
 }
 
 func (h *TodoHandler) GetTodoByID(c *fiber.Ctx) error {
-	ctx := c.Context()
-	tracer := otel.Tracer("todo-handler")
-	_, span := tracer.Start(ctx, "TodoHandler.GetTodoByID")
+	ctx := c.Locals("ctx").(context.Context)
+	ctx, span := h.tracer.Start(ctx, "TodoHandler.GetTodoByID")
 	defer span.End()
 
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
+		span.RecordError(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid ID",
 		})
 	}
 
-	todo, err := h.todoService.GetTodoByID(ctx, uint(id))
+	todo, err := h.todoService.GetTodoByID(ctx, id)
 	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	if todo == nil {
+		span.AddEvent("output", trace.WithAttributes(
+			attribute.String("output", "Todo not found"),
+		))
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Todo not found",
 		})
 	}
-
+	span.AddEvent("output", trace.WithAttributes(
+		attribute.String("output", utils.ToJSONString(todo)),
+	))
 	return c.JSON(todo)
 }
 
 func (h *TodoHandler) GetAllTodos(c *fiber.Ctx) error {
-	ctx := c.Context()
-	tracer := otel.Tracer("todo-handler")
-	_, span := tracer.Start(ctx, "TodoHandler.GetAllTodos")
+	ctx := c.Locals("ctx").(context.Context)
+	ctx, span := h.tracer.Start(ctx, "TodoHandler.GetAllTodos")
 	defer span.End()
 
 	todos, err := h.todoService.GetAllTodos(ctx)
@@ -85,32 +97,35 @@ func (h *TodoHandler) GetAllTodos(c *fiber.Ctx) error {
 			"error": err.Error(),
 		})
 	}
-
+	span.AddEvent("output", trace.WithAttributes(
+		attribute.String("output", utils.ToJSONString(todos)),
+	))
 	return c.JSON(todos)
 }
 
 func (h *TodoHandler) UpdateTodo(c *fiber.Ctx) error {
-	ctx := c.Context()
-	tracer := otel.Tracer("todo-handler")
-	_, span := tracer.Start(ctx, "TodoHandler.UpdateTodo")
+	ctx := c.Locals("ctx").(context.Context)
+	ctx, span := h.tracer.Start(ctx, "TodoHandler.UpdateTodo")
 	defer span.End()
 
 	todo := new(domain.Todo)
 	if err := c.BodyParser(todo); err != nil {
+		span.RecordError(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON",
 		})
 	}
 
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
+	id := c.Params("id")
+	if _, err := uuid.Parse(id); err != nil {
+		span.RecordError(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid ID",
+			"error": "Invalid UUID format",
 		})
 	}
-	todo.ID = uint(id)
 
 	if err := h.todoService.UpdateTodo(ctx, todo); err != nil {
+		span.RecordError(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -120,23 +135,29 @@ func (h *TodoHandler) UpdateTodo(c *fiber.Ctx) error {
 }
 
 func (h *TodoHandler) DeleteTodo(c *fiber.Ctx) error {
-	ctx := c.Context()
-	tracer := otel.Tracer("todo-handler")
-	_, span := tracer.Start(ctx, "TodoHandler.DeleteTodo")
+	ctx := c.Locals("ctx").(context.Context)
+	ctx, span := h.tracer.Start(ctx, "TodoHandler.UpdateTodo")
 	defer span.End()
 
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
+		span.RecordError(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid ID",
 		})
 	}
-
-	if err := h.todoService.DeleteTodo(ctx, uint(id)); err != nil {
+	span.AddEvent("input", trace.WithAttributes(
+		attribute.String("id", id.String()),
+	))
+	if err := h.todoService.DeleteTodo(ctx, id); err != nil {
+		span.RecordError(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
+	span.AddEvent("output", trace.WithAttributes(
+		attribute.String("output", "Todo deleted"),
+	))
 	return c.SendStatus(fiber.StatusNoContent)
 }
