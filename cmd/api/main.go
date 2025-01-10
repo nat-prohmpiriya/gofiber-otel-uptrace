@@ -6,19 +6,19 @@ import (
 	"log"
 	"todo-app/internal/domain"
 	"todo-app/internal/handler"
+	usecase "todo-app/internal/iusecase"
 	"todo-app/internal/repository"
-	"todo-app/internal/service"
 	"todo-app/middleware"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 
-	"go.opentelemetry.io/otel"
+	// "go.opentelemetry.io/otel"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-var tracer = otel.Tracer("fiber-server")
+// var tracer = otel.Tracer("fiber-server")
 
 func main() {
 	fmt.Println("Starting todo-app")
@@ -31,7 +31,7 @@ func main() {
 	}()
 
 	// เชื่อมต่อกับฐานข้อมูล
-	dsn := "host=localhost user=postgres password=postgres dbname=postgres port=5435 sslmode=disable TimeZone=Asia/Bangkok"
+	dsn := "host=postgres_app user=postgres password=postgres dbname=postgres port=5432 sslmode=disable TimeZone=Asia/Bangkok"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
@@ -49,7 +49,7 @@ func main() {
 
 	// สร้าง Dependencies
 	todoRepo := repository.NewTodoRepository(db)
-	todoService := service.NewTodoService(todoRepo)
+	todoService := usecase.NewTodoService(todoRepo)
 	todoHandler := handler.NewTodoHandler(todoService)
 
 	// สร้าง Fiber App

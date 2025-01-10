@@ -1,4 +1,4 @@
-package middleware
+package otel
 
 import (
 	"github.com/gofiber/fiber/v2"
@@ -24,7 +24,6 @@ func OtelMiddleware(serviceName string) fiber.Handler {
 		)
 
 		// Store the span context in fiber context
-		c.Locals("span", span)
 		c.Locals("ctx", ctx)
 
 		// Continue with the next middleware/handler

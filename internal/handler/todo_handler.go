@@ -1,9 +1,10 @@
 package handler
 
 import (
+	"context"
 	"strconv"
 	"todo-app/internal/domain"
-	"todo-app/internal/service"
+	usecase "todo-app/internal/iusecase"
 	"todo-app/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,16 +14,16 @@ import (
 )
 
 type TodoHandler struct {
-	todoService *service.TodoService
+	todoService *usecase.TodoService
 }
 
-func NewTodoHandler(todoService *service.TodoService) *TodoHandler {
+func NewTodoHandler(todoService *usecase.TodoService) *TodoHandler {
 	return &TodoHandler{todoService: todoService}
 }
 
 func (h *TodoHandler) CreateTodo(c *fiber.Ctx) error {
-	ctx := c.Context()
-	tracer := otel.Tracer("todo-handler")
+	ctx := c.Locals("ctx").(context.Context)
+	ctx, span := h.tr
 	_, span := tracer.Start(ctx, "TodoHandler.CreateTodo")
 	defer span.End()
 

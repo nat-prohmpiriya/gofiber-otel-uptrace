@@ -1,12 +1,11 @@
-package main
+package otel
 
 import (
-	"context"
 	"log"
-	"time"
+	"os"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -14,19 +13,26 @@ import (
 )
 
 func initTracer() *sdktrace.TracerProvider {
-	ctx := context.Background()
+	// สร้าง directory ถ้ายังไม่มี
+	if err := os.MkdirAll("/app/logs", 0755); err != nil {
+		log.Fatalf("Failed to create log directory: %v", err)
+	}
 
-	// สร้าง OTLP exporter
-	exporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpoint("0.0.0.0:4317"), // เปลี่ยนเป็น 0.0.0.0 แทน localhost
-		otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithTimeout(5*time.Second),
+	// เปิดไฟล์ log
+	f, err := os.OpenFile("/app/logs/traces.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+
+	// สร้าง exporter ที่เขียนลงทั้ง file และ stdout
+	exporter, err := stdouttrace.New(
+		stdouttrace.WithPrettyPrint(),
+		stdouttrace.WithWriter(f),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create exporter: %v", err)
 	}
 
-	// สร้าง TracerProvider
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithBatcher(exporter),

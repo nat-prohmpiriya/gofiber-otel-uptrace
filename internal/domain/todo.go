@@ -2,17 +2,14 @@ package domain
 
 import (
 	"context"
-	"time"
 )
 
 // Todo เป็น entity หลักของระบบ
 type Todo struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Done        bool      `json:"done"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	Base
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Done        bool   `json:"done"`
 }
 
 // TodoRepository เป็น interface สำหรับจัดการข้อมูล Todo

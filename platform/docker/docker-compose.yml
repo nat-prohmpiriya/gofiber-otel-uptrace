@@ -1,0 +1,128 @@
+volumes:
+  # postgres_data:
+  postgres_data2: # ch_data2:
+
+  portainer_data:
+
+
+networks:
+  monitoring:
+    driver: bridge
+
+services:
+  postgres_app:
+    image: postgres:15-alpine
+    restart: on-failure
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -U postgres -d postgres' ]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+    volumes:
+      - 'postgres_data2:/var/lib/postgresql/data/pgdata'
+    ports:
+      - '5435:5432'
+    networks:
+      - monitoring
+
+  # postgres:
+  #   image: postgres:15-alpine
+  #   restart: on-failure
+  #   environment:
+  #     PGDATA: /var/lib/postgresql/data/pgdata
+  #     POSTGRES_USER: uptrace
+  #     POSTGRES_PASSWORD: uptrace
+  #     POSTGRES_DB: uptrace
+  #   healthcheck:
+  #     test: [ 'CMD-SHELL', 'pg_isready -U uptrace -d uptrace' ]
+  #     interval: 1s
+  #     timeout: 1s
+  #     retries: 30
+  #   volumes:
+  #     - 'postgres_data:/var/lib/postgresql/data/pgdata'
+  #   ports:
+  #     - '5432:5432'
+  #   networks:
+  #     - monitoring
+
+  # clickhouse:
+  #   image: clickhouse/clickhouse-server:24.7
+  #   restart: on-failure
+  #   environment:
+  #     CLICKHOUSE_DB: uptrace
+  #   healthcheck:
+  #     test: [ 'CMD', 'wget', '--spider', '-q', 'localhost:8123/ping' ]
+  #     interval: 1s
+  #     timeout: 1s
+  #     retries: 30
+  #   volumes:
+  #     - ch_data2:/var/lib/clickhouse
+  #   ports:
+  #     - '8123:8123'
+  #     - '9000:9000'
+  #   networks:
+  #     - monitoring
+
+  # uptrace:
+  #   image: 'uptrace/uptrace:1.7.6'
+  #   # image: 'uptrace/uptrace-dev:latest'
+  #   restart: on-failure
+  #   volumes:
+  #     - ./config/uptrace.yml:/etc/uptrace/uptrace.yml
+  #   environment:
+  #     - DEBUG=2
+  #   ports:
+  #     - '14317:14317'
+  #     - '14318:14318'
+  #   depends_on:
+  #     - postgres
+  #     - clickhouse
+  #   networks:
+  #     - monitoring
+
+  # otelc:
+  #   image: otel/opentelemetry-collector-contrib:0.88.0
+  #   command: [ "--config=/etc/otel-collector-config.yaml" ]
+  #   volumes:
+  #     - ./config/otelc-config.yaml:/etc/otel-collector-config.yaml
+  #   ports:
+  #     - "4317:4317" # OTLP gRPC
+  #     - "4318:4318" # OTLP HTTP
+  #   # depends_on:
+  #   #   - uptrace
+  #   networks:
+  #     - monitoring
+
+  todo-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres_app
+    networks:
+      - monitoring
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "30"
+    volumes:
+      - ./logs:/var/log/app
+      - ./:/app
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - monitoring
