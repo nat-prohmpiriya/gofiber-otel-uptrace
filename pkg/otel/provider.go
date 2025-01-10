@@ -14,7 +14,7 @@ import (
 func InitProvider() (*sdktrace.TracerProvider, error) {
 	// Create OTLP exporter
 	exporter, err := otlptracegrpc.New(context.Background(),
-		otlptracegrpc.WithEndpoint("otel-collector:4317"),
+		otlptracegrpc.WithEndpoint("docker-otelc-1:4317"),
 		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {

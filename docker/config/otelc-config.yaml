@@ -21,13 +21,17 @@ processors:
     timeout: 1s
 
 exporters:
-  otlp/uptrace:
-    endpoint: uptrace:4317
-    tls: { insecure: false }
-    headers: { 'uptrace-dsn': 'http://project1_secret_token@localhost:14318?grpc=14317' }
+  # otlp/uptrace:
+  #   endpoint: uptrace:4317
+  #   tls: { insecure: false }
+  #   headers: { 'uptrace-dsn': 'http://project1_secret_token@localhost:14318?grpc=14317' }
+  otlp/jaeger:  # แก้ชื่อจาก otelp เป็น otlp
+    endpoint: jaeger:4317
+    tls:
+      insecure: true  # เพิ่ม tls config
   logging:
     verbosity: detailed
-    sampling_initial: 5
+    sampling_initial: 1
     sampling_thereafter: 200
 
 service:
@@ -38,12 +42,12 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging, otlp/uptrace]
-    metrics:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [ otlp/uptrace]
+      exporters: [logging, otlp/jaeger]
+    # metrics:
+    #   receivers: [otlp]
+    #   processors: [batch]
+    #   exporters: [logging, otlp/jaeger]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging, otlp/uptrace]
+      exporters: [logging]
