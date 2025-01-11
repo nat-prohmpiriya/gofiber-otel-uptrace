@@ -12,6 +12,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+
+	"strings"
 	"todo-app/pkg/otel"
 )
 
@@ -160,4 +166,60 @@ func (h *TodoHandler) DeleteTodo(c *fiber.Ctx) error {
 		attribute.String("output", "Todo deleted"),
 	))
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ViewLogHandler handles the request to view logs
+func (h *TodoHandler) ViewLogHandler(c *fiber.Ctx) error {
+	// Send HTML response from internal/views
+	return c.SendFile("/app/internal/views/viewlog.html")
+}
+
+// ProxyJaegerHandler forwards requests to Jaeger
+func (h *TodoHandler) ProxyJaegerHandler(c *fiber.Ctx) error {
+	// Build target URL for Jaeger
+	originalUrl := c.OriginalURL()
+	trimmedPath := strings.TrimPrefix(originalUrl, "/jaeger")
+	jaegerURL := fmt.Sprintf("http://jaeger:16686%s", trimmedPath)
+
+	fmt.Printf("Original URL: %s\n", originalUrl)
+	fmt.Printf("Trimmed path: %s\n", trimmedPath)
+	fmt.Printf("Target URL: %s\n", jaegerURL)
+
+	// Create HTTP request
+	req, err := http.NewRequest(c.Method(), jaegerURL, bytes.NewReader(c.Body()))
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	// Copy headers
+	for key, value := range c.GetReqHeaders() {
+		req.Header.Set(key, value[0])
+	}
+
+	// Forward the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			c.Set(key, value)
+		}
+	}
+
+	// Set status code
+	c.Status(resp.StatusCode)
+
+	// Copy response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return c.Send(body)
 }

@@ -23,7 +23,7 @@
     async fetchTraces(start, end) {
         this.loading = true;
         try {
-            let url = 'http://localhost:8080/api/traces?service=todo-service';
+            let url = `/jaeger/api/traces?service=todo-service`;
             if (start && end) {
                 url += `&start=${start}&end=${end}`;
             }

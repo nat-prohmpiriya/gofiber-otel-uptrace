@@ -5,6 +5,7 @@ volumes:
   portainer_data:
 
   jaeger-badger:
+    driver: local
 
   grafana_data:
 
@@ -136,11 +137,14 @@ services:
       - BADGER_EPHEMERAL=false
       - BADGER_DIRECTORY_VALUE=/badger/data
       - BADGER_DIRECTORY_KEY=/badger/key
+      - BADGER_CONSISTENCY=true
+      - BADGER_TRUNCATE=true
 
     volumes:
       - jaeger-badger:/badger
+      - ./data/jaeger:/badger/data
+      - ./data/jaeger-key:/badger/key
     user: "1000:1000"
-
   # loki:
   #   image: grafana/loki:latest
   #   ports:
@@ -161,15 +165,3 @@ services:
   #     - monitoring
   #   volumes:
   #     - grafana_data:/var/lib/grafana
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "8080:80"
-    volumes:
-      - ./config/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./viewlog.html:/usr/share/nginx/html/viewlog.html
-    depends_on:
-      - jaeger
-    networks:
-      - monitoring

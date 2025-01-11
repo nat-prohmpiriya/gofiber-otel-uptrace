@@ -76,6 +76,16 @@ func main() {
 	todos.Put("/:id", todoHandler.UpdateTodo)
 	todos.Delete("/:id", todoHandler.DeleteTodo)
 
+	// Add route for viewlog.html
+	app.Get("/logs", todoHandler.ViewLogHandler)
+
+	// Add routes for Jaeger proxy
+	jaeger := app.Group("/jaeger")
+	jaeger.All("/*", todoHandler.ProxyJaegerHandler)
+
+	// Serve static files from project root
+	app.Static("/", "/app")
+
 	fmt.Println("Server is running on port 4000")
 	log.Fatal(app.Listen(":4000"))
 }
