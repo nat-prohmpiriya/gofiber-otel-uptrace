@@ -6,6 +6,8 @@ volumes:
 
   jaeger-badger:
 
+  grafana_data:
+
 
 networks:
   monitoring:
@@ -105,7 +107,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.dev
     ports:
-      - "3000:3000"
+      - "4000:4000"
     depends_on:
       - postgres_app
     networks:
@@ -134,6 +136,40 @@ services:
       - BADGER_EPHEMERAL=false
       - BADGER_DIRECTORY_VALUE=/badger/data
       - BADGER_DIRECTORY_KEY=/badger/key
+
     volumes:
       - jaeger-badger:/badger
     user: "1000:1000"
+
+  # loki:
+  #   image: grafana/loki:latest
+  #   ports:
+  #     - "3100:3100"
+  #   command: -config.file=/etc/loki/local-config.yaml
+  #   volumes:
+  #     - ./config/loki-config.yaml:/etc/loki/local-config.yaml
+  #   networks:
+  #     - monitoring
+  #   environment:
+  #     - DEBUG=true
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - monitoring
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./viewlog.html:/usr/share/nginx/html/viewlog.html
+    depends_on:
+      - jaeger
+    networks:
+      - monitoring

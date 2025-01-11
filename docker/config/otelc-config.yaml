@@ -28,7 +28,11 @@ exporters:
   otlp/jaeger:  # แก้ชื่อจาก otelp เป็น otlp
     endpoint: jaeger:4317
     tls:
-      insecure: true  # เพิ่ม tls config
+      insecure: true
+  otlphttp/logs:
+    endpoint: "http://loki:3100/otlp"
+    tls:
+      insecure: true
   logging:
     verbosity: detailed
     sampling_initial: 1
@@ -42,12 +46,11 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging, otlp/jaeger]
+      exporters: [otlp/jaeger]
     # metrics:
     #   receivers: [otlp]
     #   processors: [batch]
     #   exporters: [logging, otlp/jaeger]
     logs:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [logging]
+      exporters: [otlphttp/logs, logging]

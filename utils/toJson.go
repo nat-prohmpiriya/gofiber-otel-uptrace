@@ -14,12 +14,12 @@ func ToJSONString(v interface{}) string {
 	return string(jsonBytes)
 }
 
-func ToJSONIndent(v interface{}) string {
+func ToJSONIndent(v interface{}) []byte {
 	jsonBytes, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return fmt.Sprintf("error: %v", err)
+		return []byte(fmt.Sprintf("error: %v", err))
 	}
-	return string(jsonBytes)
+	return jsonBytes
 }
 
 func ToJSONBytes(v interface{}) []byte {

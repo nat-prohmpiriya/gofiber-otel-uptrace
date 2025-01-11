@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"todo-app/pkg/otel"
 )
 
 type TodoHandler struct {
@@ -29,26 +31,24 @@ func (h *TodoHandler) CreateTodo(c *fiber.Ctx) error {
 	ctx := c.Locals("ctx").(context.Context)
 	ctx, span := h.tracer.Start(ctx, "TodoHandler.CreateTodo")
 	defer span.End()
+	logger := otel.NewTraceLogger(span)
 
 	todo := new(domain.Todo)
 	if err := c.BodyParser(todo); err != nil {
-		span.RecordError(err)
+		logger.Error(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON",
 		})
 	}
 
-	span.AddEvent("todo_data", trace.WithAttributes(
-		attribute.String("input", utils.ToJSONString(todo)),
-	))
+	logger.Input(todo)
 	if err := h.todoService.CreateTodo(ctx, todo); err != nil {
+		logger.Error(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
-	span.AddEvent("output", trace.WithAttributes(
-		attribute.String("output", utils.ToJSONString(todo)),
-	))
+	logger.Output(todo)
 	return c.Status(fiber.StatusCreated).JSON(todo)
 }
 

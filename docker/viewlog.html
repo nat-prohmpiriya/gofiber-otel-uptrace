@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Logs Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+
+<body class="bg-gray-100 p-4" x-data="{
+    traces: [],
+    spans: [],
+    logs: [],
+    loading: false,
+    searchQuery: '',
+    isRealtime: false,
+    realtimeInterval: null,
+    toggleRealtime() {
+        this.isRealtime = !this.isRealtime;
+        if (this.isRealtime) {
+            this.realtimeInterval = setInterval(() => this.fetchTraces(), 5000);
+        } else {
+            clearInterval(this.realtimeInterval);
+        }
+    },
+    get filteredSpans() {
+        return this.spans.filter(span => 
+            span.operationName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+            span.spanID.includes(this.searchQuery)
+        );
+    },
+    formatTime(timestamp) {
+        const date = new Date(timestamp / 1000);
+        return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
+            -Math.round((Date.now() - date) / 1000 / 60), 'minute'
+        );
+    },
+    formatTime2(timestamp) {
+        const date = new Date(timestamp / 1000);
+        return date.toISOString().slice(0, 19).replace('T', ' '); // Remove 'T' and keep only the date and time
+    },
+
+    getStatusColor(tags) {
+        const errorTag = tags.find(t => t.key === 'error');
+        return errorTag ? 'text-red-600' : 'text-green-600';
+    },
+    async fetchTraces() {
+        this.loading = true;
+        try {
+            const response = await fetch('http://localhost:8080/api/traces?service=todo-service');
+            const data = await response.json();
+            this.traces = data.data || [];
+            this.spans = (data.data || []).map(trace => trace.spans).flat();
+            const mappedLogs = (data.data || []).map(trace => {
+                const logs = trace.spans.map(span => {
+                    return span.logs.map(_log => {
+                        const separateWord = _log.fields[0].value.split('#')
+                        return {
+                            timestamp: _log.timestamp,
+                            operationName: span.operationName,
+                            level: separateWord[0],
+                            data: separateWord[1],
+                        }
+                    })
+                })
+                const flattenedLogs = logs.flat();
+                return flattenedLogs
+            }
+            ).flat();
+            const sortedLogs = mappedLogs.sort((a, b) =>  b.timestamp - a.timestamp);
+            console.log(sortedLogs)
+            this.logs = sortedLogs;
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        this.loading = false;
+    }
+}" x-init="fetchTraces()">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-4">
+        <h1 class="text-3xl font-bold">Logs Dashboard</h1>
+        <div class="flex items-center space-x-4">
+            <!-- Realtime Toggle -->
+            <button class="flex items-center px-4 py-2 rounded-lg border"
+                :class="isRealtime ? 'bg-green-500 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'"
+                @click="toggleRealtime()">
+                <svg class="w-4 h-4 mr-2" :class="isRealtime ? 'text-white' : 'text-gray-500'" fill="none"
+                    stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span x-text="isRealtime ? 'Realtime: ON' : 'Realtime: OFF'"></span>
+            </button>
+
+            <!-- Refresh Button -->
+            <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
+                x-on:click="fetchTraces()" x-bind:disabled="loading">
+                <span x-show="loading">Loading...</span>
+                <span class="flex items-center" x-show="!loading">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                </span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div x-show="loading" class="text-center py-4">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+    </div>
+
+    <!-- Error message -->
+    <div x-show="spans.length === 0" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
+        No spans found
+    </div>
+    <!-- Search bar -->
+    <div class="mb-4">
+        <input type="text" x-model="searchQuery" placeholder="Search spans..."
+            class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+
+    <!-- Spans list -->
+    <!-- <div id="spans">
+        <template x-for="span in filteredSpans" :key="span.spanID">
+            <div class="bg-white shadow rounded-lg p-2 mb-2" x-data="{ open: false }"> -->
+    <!-- Header with click to toggle -->
+    <!-- <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-auto text-sm text-gray-500" x-text="formatTime(span.startTime)"></div>
+                        <div :class="getStatusColor(span.tags)" class="w-3 h-3 rounded-full"></div>
+                        <div class="font-semibold" x-text="span.operationName"></div>
+                        <div class="text-sm text-gray-500" x-text="span.duration + 'ms'"></div>
+                    </div>
+                    <div class="text-gray-500">
+                        <svg class="w-6 h-6 transition-transform duration-200" :class="{'rotate-180': open}" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                </div> -->
+
+    <!-- Collapsible content -->
+    <!-- <div x-show="open" x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:leave="transition ease-in duration-100"
+                    x-transition:leave-start="opacity-100 transform scale-100"
+                    x-transition:leave-end="opacity-0 transform scale-95">
+                    <div class="mt-4">
+                        <div class="grid grid-cols-2 gap-4 mb-2">
+                            <div class="text-sm text-gray-500">Trace ID: <span class="font-mono"
+                                    x-text="span.traceID"></span></div>
+                            <div class="text-sm text-gray-500">Span ID: <span class="font-mono"
+                                    x-text="span.spanID"></span></div>
+                        </div>
+                        <pre class="whitespace-pre-wrap text-sm bg-gray-50 p-2 rounded font-mono"
+                            x-text="JSON.stringify(span, null, 2)"></pre>
+                    </div>
+                </div> -->
+    <!-- </div>
+        </template>
+    </div> -->
+
+    <div id="logs" class="space-y-1">
+        <template x-for="log in logs" :key="log.timestamp">
+            <div class="bg-white shadow border border-black-500 p-1 font-mono text-xs" x-data="{ expanded: false }">
+                <!-- Normal view -->
+                <div class="flex items-center space-x-2 cursor-pointer " x-show="!expanded" @click="expanded = true">
+                    <span class="text-gray-500 whitespace-nowrap shrink-0" x-text="formatTime2(log.timestamp)"></span>
+                    <span class="shrink-0" x-text="log.operationName"></span>
+                    <span class="shrink-0" x-text="log.level"></span>
+                    <span class="truncate flex-1"  x-text="log.data"></span>
+                </div>
+                <!-- Expanded view -->
+                <div x-show="expanded" class="cursor-pointer" @click="expanded = false">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-gray-500 whitespace-nowrap shrink-0" x-text="formatTime2(log.timestamp)"></span>
+                        <span class="shrink-0" x-text="log.operationName"></span>
+                        <span class="shrink-0" x-text="log.level"></span>
+                    </div>
+                    <pre x-text="JSON.stringify(JSON.parse(log.data), null, 4)"></pre>
+                </div>
+            </div>
+        </template>
+    </div>
+
+</body>
+
+</html>

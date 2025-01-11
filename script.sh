@@ -10,6 +10,10 @@ for i in $(seq 5 -1 1); do
 done
 
 # create network
-docker network create monitoring | true
+# docker network create monitoring | true
 # up docker
 docker-compose -f ./docker/docker-compose.yml up
+
+
+# restart docker nginx 
+# docker-compose -f ./docker/docker-compose.yml restart nginx

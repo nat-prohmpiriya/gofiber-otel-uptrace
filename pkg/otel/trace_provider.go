@@ -11,7 +11,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-func InitProvider() (*sdktrace.TracerProvider, error) {
+func TraceProvider() (*sdktrace.TracerProvider, error) {
 	// Create OTLP exporter
 	exporter, err := otlptracegrpc.New(context.Background(),
 		otlptracegrpc.WithEndpoint("docker-otelc-1:4317"),

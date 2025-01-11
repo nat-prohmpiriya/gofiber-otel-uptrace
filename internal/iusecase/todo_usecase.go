@@ -6,6 +6,8 @@ import (
 
 	"todo-app/utils"
 
+	"todo-app/pkg/otel"
+
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -23,19 +25,16 @@ func NewTodoService(repo domain.TodoUsecase, tracer trace.Tracer) *TodoService {
 func (s *TodoService) CreateTodo(ctx context.Context, todo *domain.Todo) error {
 	ctx, span := s.tracer.Start(ctx, "TodoService.CreateTodo")
 	defer span.End()
+	logger := otel.NewTraceLogger(span)
 
-	span.AddEvent("todo_data", trace.WithAttributes(
-		attribute.String("input", utils.ToJSONString(todo)),
-	))
+	logger.Input(todo)
 
 	err := s.repo.Create(ctx, todo)
 	if err != nil {
-		span.RecordError(err)
+		logger.Error(err)
 		return err
 	}
-	span.AddEvent("output", trace.WithAttributes(
-		attribute.String("output", utils.ToJSONString(todo)),
-	))
+	logger.Output(todo)
 	return nil
 }
 

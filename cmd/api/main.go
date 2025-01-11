@@ -25,7 +25,7 @@ import (
 func main() {
 	fmt.Println("Starting todo-app")
 	// Initialize tracer
-	tp, err := otel.InitProvider()
+	tp, err := otel.TraceProvider()
 	if err != nil {
 		log.Fatal("Failed to initialize tracer:", err)
 	}
@@ -76,6 +76,6 @@ func main() {
 	todos.Put("/:id", todoHandler.UpdateTodo)
 	todos.Delete("/:id", todoHandler.DeleteTodo)
 
-	fmt.Println("Server is running on port 3000")
-	log.Fatal(app.Listen(":3000"))
+	fmt.Println("Server is running on port 4000")
+	log.Fatal(app.Listen(":4000"))
 }
