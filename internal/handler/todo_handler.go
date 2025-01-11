@@ -171,7 +171,7 @@ func (h *TodoHandler) DeleteTodo(c *fiber.Ctx) error {
 // ViewLogHandler handles the request to view logs
 func (h *TodoHandler) ViewLogHandler(c *fiber.Ctx) error {
 	// Send HTML response from internal/views
-	return c.SendFile("/app/internal/views/viewlog.html")
+	return c.SendFile("/app/web/viewlog.html")
 }
 
 // ProxyJaegerHandler forwards requests to Jaeger
@@ -179,7 +179,8 @@ func (h *TodoHandler) ProxyJaegerHandler(c *fiber.Ctx) error {
 	// Build target URL for Jaeger
 	originalUrl := c.OriginalURL()
 	trimmedPath := strings.TrimPrefix(originalUrl, "/jaeger")
-	jaegerURL := fmt.Sprintf("http://jaeger:16686%s", trimmedPath)
+	// Add /api prefix for Jaeger API
+	jaegerURL := fmt.Sprintf("http://jaeger:16686/api%s", trimmedPath)
 
 	fmt.Printf("Original URL: %s\n", originalUrl)
 	fmt.Printf("Trimmed path: %s\n", trimmedPath)
@@ -193,14 +194,17 @@ func (h *TodoHandler) ProxyJaegerHandler(c *fiber.Ctx) error {
 	}
 
 	// Copy headers
-	for key, value := range c.GetReqHeaders() {
-		req.Header.Set(key, value[0])
+	for key, values := range c.GetReqHeaders() {
+		if len(values) > 0 {
+			req.Header.Set(key, values[0])  // ใช้ค่าแรกจาก array
+		}
 	}
 
-	// Forward the request
+	// Send request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -212,14 +216,14 @@ func (h *TodoHandler) ProxyJaegerHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	// Set status code
-	c.Status(resp.StatusCode)
-
-	// Copy response body
+	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 
+	// Set status code and return response body
+	c.Status(resp.StatusCode)
 	return c.Send(body)
 }

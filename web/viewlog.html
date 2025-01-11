@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Logs Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/petite-vue"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+
+<body class="bg-gray-100 p-4">
+    <div id="app" v-scope="app">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-3xl font-bold">Logs Dashboard</h1>
+            <div class="flex items-center space-x-4">
+                <!-- Realtime Toggle -->
+                <button class="flex  px-4 py-2 rounded-lg border"
+                    :class="isRealtime ? 'bg-green-500 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'"
+                    @click="toggleRealtime">
+                    <svg class="w-4 h-4 mr-2" :class="isRealtime ? 'text-white' : 'text-gray-500'" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>{{ isRealtime ? 'Realtime: ON' : 'Realtime: OFF' }}</span>
+                </button>
+
+                <!-- Refresh Button -->
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
+                    @click="fetchTraces" :disabled="loading">
+                    <span v-if="loading">Loading...</span>
+                    <span class="flex items-center" v-if="!loading">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading indicator -->
+        <div v-if="loading" class="text-center py-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        </div>
+
+        <!-- Error message -->
+        <div v-if="spans.length === 0" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
+            No spans found
+        </div>
+
+        <div class="grid grid-cols-6 gap-4">
+            <!-- Quick Selector Dropdown -->
+            <div class="relative mb-4 col-span-2" v-scope="{ dropdownOpen: false }">
+                <button @click="dropdownOpen = !dropdownOpen"
+                    class="flex items-center space-x-2 px-4 py-2 border rounded-lg bg-white">
+                    <span>Quick Selector</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                <!-- Dropdown Panel -->
+                <div v-if="dropdownOpen" @click.away="dropdownOpen = false"
+                    class="absolute z-50 mt-4 w-auto bg-white rounded-lg shadow-lg border p-4">
+                    <!-- Quick Options -->
+                    <div class="grid grid-cols-4 gap-4">
+                        <!-- shorttime -->
+                        <div class="flex flex-col space-y-2 col-span-1">
+                            <button
+                                class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded text-sm"
+                                @click="setTimeRange('30m')">30m</button>
+                            <button @click="setTimeRange('1h')"
+                                class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded text-sm">1h</button>
+                            <button @click="setTimeRange('2h')"
+                                class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded text-sm">2h</button>
+                            <button @click="setTimeRange('6h')"
+                                class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded text-sm">6h</button>
+                            <button @click="setTimeRange('12h')"
+                                class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded text-sm">12h</button>
+                            <button @click="setTimeRange('1d')"
+                                class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded text-sm">1d</button>
+                        </div>
+                        <!-- Calendar -->
+                        <div class="col-span-3">
+                            <input type="text" id="start" class="hidden" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Box -->
+            <div class="col-span-4">
+                <input type="text" v-model="searchQuery"
+                    class="w-full px-4 py-2 rounded-lg border focus:outline-none focus:border-blue-500"
+                    placeholder="Search logs...">
+            </div>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden mt-4">
+            <table class="min-w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Operation
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <tr v-for="log in logs" :key="log.timestamp">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div>{{ formatTime2(log.timestamp) }}</div>
+                        </td>
+                        <td class="px-2 py-2 whitespace-nowrap text-sm text-gray-900">{{ log.operationName }}</td>
+                        <td class="p2-6 py-2 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 rounded-full" :class="{
+                                    'bg-green-100 text-green-800': log.level === 'INFO',
+                                    'bg-yellow-100 text-yellow-800': log.level === 'WARN',
+                                    'bg-red-100 text-red-800': log.level === 'ERROR'
+                                }">
+                                {{ log.level }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ log.data }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            // Data
+            traces: [],
+            spans: [],
+            logs: [],
+            loading: false,
+            searchQuery: '',
+            isRealtime: false,
+            realtimeInterval: null,
+            filteredLogs: [],
+            fp: null,
+
+            // Lifecycle hooks
+            $mounted() {
+                console.log('mounted hook called')
+                this.fetchTraces()
+            },
+
+            // Methods
+            async fetchTraces(start, end) {
+                this.loading = true;
+                try {
+                    let url = `http://localhost:4000/jaeger/traces?service=todo-service`;
+                    // if (start && end) {
+                    //     url += `&start=${start}&end=${end}`;
+                    // }
+                    const response = await fetch(url);
+                    console.log({ response })
+                    const data = await response.json();
+                    this.traces = data.data || [];
+                    this.spans = (data.data || []).map(trace => trace.spans).flat();
+                    const mappedLogs = (data.data || []).map(trace => {
+                        const logs = trace.spans.map(span => {
+                            return span.logs.map(_log => {
+                                const separateWord = _log.fields[0].value.split('#')
+                                return {
+                                    timestamp: _log.timestamp,
+                                    operationName: span.operationName,
+                                    level: separateWord[0],
+                                    data: separateWord[1],
+                                }
+                            })
+                        })
+                        const flattenedLogs = logs.flat();
+                        return flattenedLogs
+                    }).flat();
+                    const sortedLogs = mappedLogs.sort((a, b) => b.timestamp - a.timestamp);
+                    this.logs = sortedLogs;
+                } catch (error) {
+                    console.error('Error:', error);
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            toggleRealtime() {
+                this.isRealtime = !this.isRealtime;
+                if (this.isRealtime) {
+                    this.realtimeInterval = setInterval(() => this.fetchTraces(), 5000);
+                } else {
+                    clearInterval(this.realtimeInterval);
+                }
+            },
+
+            formatTime(timestamp) {
+                const date = new Date(timestamp / 1000);
+                return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
+                    -Math.round((Date.now() - date) / 1000 / 60), 'minute'
+                );
+            },
+
+            formatTime2(timestamp) {
+                const date = new Date(timestamp / 1000);
+                return date.toISOString().slice(0, 19).replace('T', ' ');
+            },
+
+            getStatusColor(tags) {
+                const errorTag = tags.find(t => t.key === 'error');
+                return errorTag ? 'text-red-600' : 'text-green-600';
+            },
+
+            setTimeRange(value) {
+                const now = new Date();
+                let start = new Date();
+
+                switch (value) {
+                    case '30m': start.setMinutes(start.getMinutes() - 30); break;
+                    case '1h': start.setHours(start.getHours() - 1); break;
+                    case '2h': start.setHours(start.getHours() - 2); break;
+                    case '6h': start.setHours(start.getHours() - 6); break;
+                    case '12h': start.setHours(start.getHours() - 12); break;
+                    case '1d': start.setDate(start.getDate() - 1); break;
+                }
+
+                this.fp.setDate([start, now]);
+                this.fetchTraces(start.getTime() * 1000, now.getTime() * 1000);
+                this.dropdownOpen = false;
+            },
+
+            filteredLogsFn() {
+                if (!this.searchQuery) return this.filteredLogs = this.logs;
+                const query = this.searchQuery.toLowerCase();
+                const result = this.logs.filter(log =>
+                    log.operationName.toLowerCase().includes(query) ||
+                    log.level.toLowerCase().includes(query) ||
+                    log.data.toLowerCase().includes(query)
+                );
+                this.filteredLogs = result;
+                return result;
+            }
+        }
+
+        // Mount Petite Vue
+        PetiteVue.createApp({ app }).mount()
+    </script>
+</body>
+
+</html>

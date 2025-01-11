@@ -9,6 +9,7 @@ import (
 	"todo-app/internal/repository"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 
 	// "go.opentelemetry.io/otel"
@@ -65,7 +66,14 @@ func main() {
 	// Add middlewares
 	app.Use(logger.New())
 	app.Use(otel.OtelMiddleware("todo-service"))
-
+	
+	// Add CORS middleware with custom config
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",                // อนุญาตทุก origin
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders: "Origin, Content-Type, Accept",
+	}))
+	
 	// Routes
 	api := app.Group("/api")
 	todos := api.Group("/todos")
