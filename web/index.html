@@ -173,7 +173,11 @@
                                 <td class="pointer fs-12" @click="log.expanded = !log.expanded">{{ log.operationName }}</td>
                                 <td class="text-nowrap pointer fs-12" @click="log.expanded = !log.expanded">{{ log.level }}</td>
                                 <td class="d-flex justify-content-between" style="width: 100%;">
-                                    <pre class="fs-12">{{ JSON.stringify(JSON.parse(log?.data), null, 2) }}</pre>
+                                    <div class="w-100">
+                                        <pre class="fs-12">{{ JSON.stringify(JSON.parse(log?.data), null, 2) }}</pre>
+                                        <p class="fs-12 m-0">Trace ID: {{ log?.traceId }}</p>
+                                        <p class="fs-12 m-0">Span ID: {{ log?.spanId }}</p>
+                                    </div>
                                     <i class="bi bi-box-arrow-in-up-right fs-5 pointer"@click="log.expanded = !log.expanded"></i>
                                 </td>
                             </tr>
@@ -240,7 +244,7 @@
                     ],
                     searchText: '',  // เพิ่ม searchText
                     currentPage: 1,
-                    itemsPerPage: 50,
+                    itemsPerPage: 1000,
                 }
             },
             computed: {
